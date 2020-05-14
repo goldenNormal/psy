@@ -1,0 +1,227 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+    <link rel="stylesheet" href="https://a.amap.com/jsapi_demos/static/demo-center/css/demo-center.css" />
+    <title>疫情地图</title>
+    <style>
+        html,
+        body,
+        #container {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        #weather{
+            visibility: visible;
+            width: 320px;
+            height: 220px;
+            margin-left: 30px;
+            background-color: white;
+            border: 1px solid black;
+            position: absolute;
+            top: 0px;
+            right: 0px;
+            border-radius: 5px;
+            z-index: 1000;
+            font-size: 20px;
+            /*position: relative;*/
+
+        }
+        p{
+            margin-left: 20px;
+        }
+        #Grade{
+            width: 320px;
+            height: 250px;
+            margin-left: 30px;
+            /*background-color: white;*/
+            border: 1px solid black;
+            position: absolute;
+            bottom: 0px;
+            right: 0px;
+            border-radius: 5px;
+            z-index: 1000;
+            font-size: 20px;
+        }
+        .bar{
+            display: inline-block;
+            width: 100px;
+            height: 20px;
+            border: 1px red solid;
+            z-index: 1001;
+            background-color: lightskyblue;
+        }
+    </style>
+</head>
+<body>
+<div id="container" class="map" tabindex="0"></div>
+<div id="weather">
+    <p><b>疫情今日情况</b></p>
+    <hr>
+    <p>国家：<span id="name"></span></p>
+    <p>当前确诊人数：<span id="cur-Confirm"></span> </p>
+    <p>发布时间：<span id="datetime"></span></p>
+</div>
+<div id="Grade">
+    <p><span class="bar" id="bar_0"></span>&nbsp;&nbsp;0</p>
+    <p><span class="bar" id="bar_1"></span>&nbsp;&nbsp;1~10</p>
+    <p><span class="bar" id="bar_2"></span>&nbsp;&nbsp;10~100</p>
+    <p><span class="bar" id="bar_3"></span>&nbsp;&nbsp;100~1,000</p>
+    <p><span class="bar" id="bar_4"></span>&nbsp;&nbsp;1,000~10,000</p>
+    <p><span class="bar" id="bar_5"></span>&nbsp;&nbsp;10,000~100.000</p>
+    <p><span class="bar" id="bar_6"></span>&nbsp;&nbsp;100,000~1,000,000</p>
+    <p><span class="bar" id="bar_7"></span>&nbsp;&nbsp;1,000,000以上</p>
+</div>
+<!-- 加载地图JSAPI脚本 -->
+<script src="https://webapi.amap.com/maps?v=1.4.15&key=9eb090090b2b921e7e270942d049e8a7&plugin=Map3D,AMap.DistrictLayer,AMap.Scale,AMap.ToolBar"></script>
+<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script>
+    window.callbackstaticdata = function(res){
+        console.log(res);
+        SOClist=[]
+        countryList=[]
+        ConfirmList=[]
+        color=[]
+        var data=res.continentDataList
+        for (var i = 0; i < data.length; i++) {
+            var cs=data[i].countriesData
+            for (var j = 0; j < cs.length; j++) {
+                var country=cs[j].childStatistic
+                countryList.push(country)
+                var currentConfirm=cs[j].currentConfirm
+                var code=cs[j].mapCode
+                console.log(country,currentConfirm,code)
+                SOClist.push(code)
+                ConfirmList.push(currentConfirm)
+                color.push(cal_color(currentConfirm))
+            }
+
+        }
+        console.log(color)
+    }
+
+
+
+    function cal_color(n){
+        // if(n==0)return 0;
+        var cnt=0;
+        n=parseInt(n);
+        while(n>=1){
+            console.log()
+            n=n/10;
+            cnt++;
+        }
+        console.log('cnt=',cnt)
+        return cnt;
+    }
+
+
+
+    // t 为时间戳，防止缓存
+    $.getScript("https://cdn.mdeer.com/data/yqstaticdata.js?callback=callbackstaticdata&t="+(+new Date));
+</script>
+
+<script>
+window.onload=function (ev) {
+    var nationFill = ['#FFFFFF','#FEDEDE','#E4A9AB','#CB8183','#B65D5F','#9F3C3F','#821B1D','#530608'];
+    for (var i = 0; i < 8; i++) {
+        var id='#bar_'+i;
+        $(id).css('background-color',nationFill[i]);
+    }
+    // 绘制世界地图国家轮廓
+    var disWorld = new AMap.DistrictLayer.World({
+        zIndex: 10,
+        styles: {
+            // 颜色格式: #RRGGBB、rgba()、rgb()、[r, g, b, a]
+            // 国境线
+            //'nation-stroke': nationStroke,
+            // 海岸线
+            //'coastline-stroke': '',
+            // 填充
+            'fill': function (props) {
+
+                var index=countryList.indexOf(props.NAME_CHN)
+                if(index==-1){
+
+                    index=SOClist.indexOf(props.SOC)
+                }
+                if(index!=-1){
+
+                    return nationFill[color[index]];
+                }
+                else{
+                    console.log('SOC=',props.SOC)
+                    console.log('index=',index)
+                    console.log('country=',props.NAME_CHN)
+                    return "white";
+                }
+
+            }
+        }
+    });
+
+    var map = new AMap.Map('container', {
+        zooms: [3, 18],
+        center:[110,30],
+        showIndoorMap: false,
+        zoom: 3,
+        isHotspot: false,
+        defaultCursor: 'pointer',
+        touchZoomCenter: 1,
+        pitch: 0,
+        layers: [
+            disWorld
+        ],
+        viewMode: '3D',
+        resizeEnable: true
+    });
+
+    map.on('click', function (ev) {
+        var px = ev.pixel;
+        // 拾取所在位置的行政区
+        var props = disWorld.getDistrictByContainerPos(px);
+        $('#weather').css('visibility','visible')
+        if (props) {
+            var SOC = props.SOC;
+            if(SOC){
+                // 重置行政区样式
+
+                updateInfo(props);
+            }
+
+        }
+    });
+
+
+
+
+    function updateInfo(props) {
+        document.getElementById('name').innerText = props.NAME_CHN;
+        var index=countryList.indexOf(props.NAME_CHN)
+        if(index==-1){
+
+            index=SOClist.indexOf(props.SOC)
+        }
+        var con;
+        if(index!=-1){
+            con= ConfirmList[index];
+        }
+        else{
+            con=0;
+        }
+        document.getElementById('cur-Confirm').innerText = con;
+        document.getElementById('datetime').innerText=new Date().toDateString();
+    }
+
+}
+
+
+
+</script>
+
+</body>
+</html>
